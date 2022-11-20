@@ -62,3 +62,6 @@ stop_back:
 
 run:
 	set STRIPE_KEY=${STRIPE_KEY}&& set STRIPE_SECRET=${STRIPE_SECRET}&& go run ./cmd/web -dsn=${DSN}
+
+run-api:
+	set STRIPE_KEY=${STRIPE_KEY}&& set STRIPE_SECRET=${STRIPE_SECRET}&& go run ./cmd/api -dsn=${DSN}
