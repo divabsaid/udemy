@@ -1,0 +1,9 @@
+create_table("customers") {
+  t.Column("id", "integer", {primary: true})
+  t.Column("first_name", "string", {"size": 255})
+  t.Column("last_name", "string", {"size": 255})
+  t.Column("email", "string", {})
+}
+
+sql("alter table customers modify column created_at timestamp not null default current_timestamp();")
+sql("alter table customers modify column updated_at timestamp not null default current_timestamp();")
