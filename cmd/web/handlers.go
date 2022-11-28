@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"myapp/internal/cards"
 	"myapp/internal/models"
 	"net/http"
@@ -258,4 +259,20 @@ func (app *application) ChargeOnce(w http.ResponseWriter, r *http.Request) {
 		app.errorLog.Println(err)
 	}
 
+}
+
+func (app *application) BronzePlan(w http.ResponseWriter, r *http.Request) {
+	widget, err := app.DB.GetWidget(2)
+	fmt.Println(widget)
+	if err != nil {
+		app.errorLog.Println(err)
+		return
+	}
+
+	data := make(map[string]interface{})
+	data["widget"] = widget
+
+	if err := app.renderTemplate(w, r, "bronze-plan", &templateData{Data: data}); err != nil {
+		app.errorLog.Print(err)
+	}
 }
