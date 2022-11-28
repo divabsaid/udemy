@@ -243,7 +243,7 @@ func (app *application) SaveOrder(order models.Order) (int, error) {
 
 func (app *application) CreateAuthToken(w http.ResponseWriter, r *http.Request) {
 	var userInput struct {
-		Email string `json:"email"`
+		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
 
@@ -254,13 +254,11 @@ func (app *application) CreateAuthToken(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var payload struct {
-		Error bool `json:"error"`
+		Error   bool   `json:"error"`
 		Message string `json:"message"`
 	}
 	payload.Error = false
 	payload.Message = "Success!"
 
-	out, _ := json.MarshalIndent(payload, "", "\t")
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(out)
+	_ = app.writeJSON(w, http.StatusOK, payload)
 }
