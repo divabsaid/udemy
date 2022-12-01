@@ -67,7 +67,7 @@ func (m *DBModel) GetUserForToken(token string) (*User, error) {
 	tokenHash := sha256.Sum256([]byte(token))
 	var user User
 
-	query := `select u.id, u.first_name, u.last_name, u.email, from users u inner join tokens t on (u.id = t.user_id) where t.hash = ?`
+	query := `select u.id, u.first_name, u.last_name, u.email, from users u inner join tokens t on (u.id = t.user_id) where t.token_hash = ?`
 	err := m.DB.QueryRowContext(ctx, query, tokenHash[:]).Scan(&user.ID, &user.FirstName, &user.LastName, &user.Email)
 	if err != nil {
 		log.Println(err)
