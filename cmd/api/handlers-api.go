@@ -315,6 +315,11 @@ func (app *application) authenticateToken(r *http.Request) (*models.User, error)
 		return nil, errors.New("authentication token wrong size")
 	}
 
+	user, err := app.DB.GetUserForToken(token)
+	if err != nil {
+		return nil, errors.New("no matching user found")
+	}
+
 	return &u, nil
 }
 
