@@ -8,5 +8,3 @@ create_table("widgets") {
 
 sql("alter table widgets modify column created_at timestamp not null default current_timestamp();")
 sql("alter table widgets modify column updated_at timestamp not null default current_timestamp();")
-
-sql("insert into widgets (name, description, inventory_level, price, created_at, updated_at) values ('Widget', 'A very nice widget.', 10, 1000, current_timestamp(), current_timestamp());")
