@@ -73,6 +73,7 @@ type TransactionStatus struct {
 	UpdatedAt time.Time `json:"-"`
 }
 
+// Transaction is the type for transactions
 type Transaction struct {
 	ID                  int       `json:"id"`
 	Amount              int       `json:"amount"`
@@ -88,6 +89,7 @@ type Transaction struct {
 	UpdatedAt           time.Time `json:"-"`
 }
 
+// User is the type for users
 type User struct {
 	ID        int       `json:"id"`
 	FirstName string    `json:"first_name"`
@@ -108,17 +110,37 @@ type Customer struct {
 	UpdatedAt time.Time `json:"-"`
 }
 
+// GetWidget gets one widget by id
 func (m *DBModel) GetWidget(id int) (Widget, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	var widget Widget
 
-	row := m.DB.QueryRowContext(ctx, `select id, name, description, inventory_level, price, coalesce(image, ''), is_recurring, plan_id, created_at, updated_at from widgets where id = ?`, id)
-	err := row.Scan(&widget.ID, &widget.Name, &widget.Description, &widget.InventoryLevel, &widget.Price, &widget.Image, &widget.IsRecurring, &widget.PlanID, &widget.CreatedAt, &widget.UpdatedAt)
+	row := m.DB.QueryRowContext(ctx, `
+		select 
+			id, name, description, inventory_level, price, coalesce(image, ''),
+			is_recurring, plan_id,
+			created_at, updated_at
+		from 
+			widgets 
+		where id = ?`, id)
+	err := row.Scan(
+		&widget.ID,
+		&widget.Name,
+		&widget.Description,
+		&widget.InventoryLevel,
+		&widget.Price,
+		&widget.Image,
+		&widget.IsRecurring,
+		&widget.PlanID,
+		&widget.CreatedAt,
+		&widget.UpdatedAt,
+	)
 	if err != nil {
 		return widget, err
 	}
+
 	return widget, nil
 }
 
@@ -127,10 +149,27 @@ func (m *DBModel) InsertTransaction(txn Transaction) (int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	stmt := `insert into transactions (amount, currency, last_four, bank_return_code, expiry_month, expiry_year, payment_intent, payment_method, transaction_status_id, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	stmt := `
+		insert into transactions
+			(amount, currency, last_four, bank_return_code, expiry_month, expiry_year,
+				payment_intent, payment_method,
+			transaction_status_id, created_at, updated_at)
+		values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
 
-	result, err := m.DB.ExecContext(ctx, stmt, txn.Amount, txn.Currency, txn.LastFour, txn.BankReturnCode, txn.ExpiryMonth, txn.ExpiryYear, txn.PaymentIntent, txn.PaymentMethod, txn.TransactionStatusID, time.Now(), time.Now())
-
+	result, err := m.DB.ExecContext(ctx, stmt,
+		txn.Amount,
+		txn.Currency,
+		txn.LastFour,
+		txn.BankReturnCode,
+		txn.ExpiryMonth,
+		txn.ExpiryYear,
+		txn.PaymentIntent,
+		txn.PaymentMethod,
+		txn.TransactionStatusID,
+		time.Now(),
+		time.Now(),
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -148,10 +187,23 @@ func (m *DBModel) InsertOrder(order Order) (int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	stmt := `insert into orders (widget_id, transaction_id, status_id, quantity, customer_id, amount, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?)`
+	stmt := `
+		insert into orders
+			(widget_id, transaction_id, status_id, quantity, customer_id,
+			amount, created_at, updated_at)
+		values (?, ?, ?, ?, ?, ?, ?, ?)
+	`
 
-	result, err := m.DB.ExecContext(ctx, stmt, order.WidgetID, order.TransactionID, order.StatusID, order.Quantity, order.CustomerID, order.Amount, time.Now(), time.Now())
-
+	result, err := m.DB.ExecContext(ctx, stmt,
+		order.WidgetID,
+		order.TransactionID,
+		order.StatusID,
+		order.Quantity,
+		order.CustomerID,
+		order.Amount,
+		time.Now(),
+		time.Now(),
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -164,15 +216,23 @@ func (m *DBModel) InsertOrder(order Order) (int, error) {
 	return int(id), nil
 }
 
-// InsertCustomer inserts a new customer, and returns its id
+// InsertOrder inserts a new order, and returns its id
 func (m *DBModel) InsertCustomer(c Customer) (int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	stmt := `insert into customers (first_name, last_name, email, created_at, updated_at) values (?, ?, ?, ?, ?)`
+	stmt := `
+		insert into customers
+			(first_name, last_name, email, created_at, updated_at)
+		values (?, ?, ?, ?, ?)`
 
-	result, err := m.DB.ExecContext(ctx, stmt, c.FirstName, c.LastName, c.Email, time.Now(), time.Now())
-
+	result, err := m.DB.ExecContext(ctx, stmt,
+		c.FirstName,
+		c.LastName,
+		c.Email,
+		time.Now(),
+		time.Now(),
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -185,6 +245,7 @@ func (m *DBModel) InsertCustomer(c Customer) (int, error) {
 	return int(id), nil
 }
 
+// GetUserByEmail gets a user by email address
 func (m *DBModel) GetUserByEmail(email string) (User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -192,9 +253,22 @@ func (m *DBModel) GetUserByEmail(email string) (User, error) {
 	email = strings.ToLower(email)
 	var u User
 
-	row := m.DB.QueryRowContext(ctx, `select id, first_name, last_name, email, password, created_at, updated_at from users where email = ?`, email)
+	row := m.DB.QueryRowContext(ctx, `
+		select
+			id, first_name, last_name, email, password, created_at, updated_at
+		from
+			users
+		where email = ?`, email)
 
-	err := row.Scan(&u.ID, &u.FirstName, &u.LastName, &u.Email, &u.Password, &u.CreatedAt, &u.UpdatedAt)
+	err := row.Scan(
+		&u.ID,
+		&u.FirstName,
+		&u.LastName,
+		&u.Email,
+		&u.Password,
+		&u.CreatedAt,
+		&u.UpdatedAt,
+	)
 
 	if err != nil {
 		return u, err
@@ -208,15 +282,15 @@ func (m *DBModel) Authenticate(email, password string) (int, error) {
 	defer cancel()
 
 	var id int
-	var hashedPasswrod string
+	var hashedPassword string
 
 	row := m.DB.QueryRowContext(ctx, "select id, password from users where email = ?", email)
-	err := row.Scan(&id, &hashedPasswrod)
+	err := row.Scan(&id, &hashedPassword)
 	if err != nil {
 		return id, err
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(hashedPasswrod), []byte(password))
+	err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 	if err == bcrypt.ErrMismatchedHashAndPassword {
 		return 0, errors.New("incorrect password")
 	} else if err != nil {
@@ -246,6 +320,73 @@ func (m *DBModel) GetAllOrders() ([]*Order, error) {
 	var orders []*Order
 
 	query := `
+	select
+		o.id, o.widget_id, o.transaction_id, o.customer_id, 
+		o.status_id, o.quantity, o.amount, o.created_at,
+		o.updated_at, w.id, w.name, t.id, t.amount, t.currency,
+		t.last_four, t.expiry_month, t.expiry_year, t.payment_intent,
+		t.bank_return_code, c.id, c.first_name, c.last_name, c.email
+		
+	from
+		orders o
+		left join widgets w on (o.widget_id = w.id)
+		left join transactions t on (o.transaction_id = t.id)
+		left join customers c on (o.customer_id = c.id)
+	where
+		w.is_recurring = 0
+	order by
+		o.created_at desc
+	`
+
+	rows, err := m.DB.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var o Order
+		err = rows.Scan(
+			&o.ID,
+			&o.WidgetID,
+			&o.TransactionID,
+			&o.CustomerID,
+			&o.StatusID,
+			&o.Quantity,
+			&o.Amount,
+			&o.CreatedAt,
+			&o.UpdatedAt,
+			&o.Widget.ID,
+			&o.Widget.Name,
+			&o.Transaction.ID,
+			&o.Transaction.Amount,
+			&o.Transaction.Currency,
+			&o.Transaction.LastFour,
+			&o.Transaction.ExpiryMonth,
+			&o.Transaction.ExpiryYear,
+			&o.Transaction.PaymentIntent,
+			&o.Transaction.BankReturnCode,
+			&o.Customer.ID,
+			&o.Customer.FirstName,
+			&o.Customer.LastName,
+			&o.Customer.Email,
+		)
+		if err != nil {
+			return nil, err
+		}
+		orders = append(orders, &o)
+	}
+
+	return orders, nil
+}
+
+func (m *DBModel) GetAllSubscriptions() ([]*Order, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	var orders []*Order
+
+	query := `
 		select
 			o.id, o.widget_id, o.transaction_id, o.customer_id,
 			o.status_id, o.quantity, o.amount, o.created_at,
@@ -258,8 +399,8 @@ func (m *DBModel) GetAllOrders() ([]*Order, error) {
 			left join transactions t on (o.transaction_id = t.id)
 			left join customers c on (o.customer_id = c.id)
 		where
-			w.is_recurring = 0
-		order by
+			w.is_recurring = 1
+		order by 
 			o.created_at desc
 	`
 
