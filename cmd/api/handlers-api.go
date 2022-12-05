@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"myapp/internal/cards"
+	"myapp/internal/encryption"
 	"myapp/internal/models"
 	"myapp/internal/urlsigner"
 	"net/http"
@@ -91,9 +92,9 @@ func (app *application) GetPaymentIntent(w http.ResponseWriter, r *http.Request)
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(out)
 	}
-
 }
 
+// GetWidgetByID gets one widget by id and returns as JSON
 func (app *application) GetWidgetByID(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	widgetID, _ := strconv.Atoi(id)
@@ -114,7 +115,7 @@ func (app *application) GetWidgetByID(w http.ResponseWriter, r *http.Request) {
 	w.Write(out)
 }
 
-func (app *application) CreateCustomerAndSubscriberToPlan(w http.ResponseWriter, r *http.Request) {
+func (app *application) CreateCustomerAndSubscribeToPlan(w http.ResponseWriter, r *http.Request) {
 	var data stripePayload
 	err := json.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
@@ -148,7 +149,6 @@ func (app *application) CreateCustomerAndSubscriberToPlan(w http.ResponseWriter,
 			okay = false
 			txnMsg = "Error subscribing customer"
 		}
-
 		app.infoLog.Println("subscription id is", subscription.ID)
 	}
 
@@ -258,12 +258,14 @@ func (app *application) CreateAuthToken(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// get the user from the database by email; send error if invalid email
 	user, err := app.DB.GetUserByEmail(userInput.Email)
 	if err != nil {
 		app.invalidCredentials(w)
 		return
 	}
 
+	// validate the password; send error if invalid password
 	validPassword, err := app.passwordMatches(user.Password, userInput.Password)
 	if err != nil {
 		app.invalidCredentials(w)
@@ -275,17 +277,21 @@ func (app *application) CreateAuthToken(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// generate the token
 	token, err := models.GenerateToken(user.ID, 24*time.Hour, models.ScopeAuthentication)
 	if err != nil {
 		app.badRequest(w, r, err)
 		return
 	}
 
+	// save to database
 	err = app.DB.InsertToken(token, user)
 	if err != nil {
 		app.badRequest(w, r, err)
 		return
 	}
+
+	// send response
 
 	var payload struct {
 		Error   bool          `json:"error"`
@@ -315,6 +321,7 @@ func (app *application) authenticateToken(r *http.Request) (*models.User, error)
 		return nil, errors.New("authentication token wrong size")
 	}
 
+	// get the user from the tokens table
 	user, err := app.DB.GetUserForToken(token)
 	if err != nil {
 		return nil, errors.New("no matching user found")
@@ -324,17 +331,18 @@ func (app *application) authenticateToken(r *http.Request) (*models.User, error)
 }
 
 func (app *application) CheckAuthentication(w http.ResponseWriter, r *http.Request) {
+	// validate the token, and get associated user
 	user, err := app.authenticateToken(r)
 	if err != nil {
 		app.invalidCredentials(w)
 		return
 	}
 
+	// valid user
 	var payload struct {
 		Error   bool   `json:"error"`
 		Message string `json:"message"`
 	}
-
 	payload.Error = false
 	payload.Message = fmt.Sprintf("authenticated user %s", user.Email)
 	app.writeJSON(w, http.StatusOK, payload)
@@ -414,6 +422,7 @@ func (app *application) SendPasswordResetEmail(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// verify that email exists
 	_, err = app.DB.GetUserByEmail(payload.Email)
 	if err != nil {
 		var resp struct {
@@ -427,9 +436,11 @@ func (app *application) SendPasswordResetEmail(w http.ResponseWriter, r *http.Re
 	}
 
 	link := fmt.Sprintf("%s/reset-password?email=%s", app.config.frontend, payload.Email)
+
 	sign := urlsigner.Signer{
 		Secret: []byte(app.config.secretkey),
 	}
+
 	signedLink := sign.GenerateTokenFromString(link)
 
 	var data struct {
@@ -438,6 +449,7 @@ func (app *application) SendPasswordResetEmail(w http.ResponseWriter, r *http.Re
 
 	data.Link = signedLink
 
+	// send mail
 	err = app.SendMail("info@widgets.com", payload.Email, "Password Reset Request", "password-reset", data)
 	if err != nil {
 		app.errorLog.Println(err)
@@ -467,7 +479,17 @@ func (app *application) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := app.DB.GetUserByEmail(payload.Email)
+	encyrptor := encryption.Encryption{
+		Key: []byte(app.config.secretkey),
+	}
+
+	realEmail, err := encyrptor.Decrypt(payload.Email)
+	if err != nil {
+		app.badRequest(w, r, err)
+		return
+	}
+
+	user, err := app.DB.GetUserByEmail(realEmail)
 	if err != nil {
 		app.badRequest(w, r, err)
 		return
@@ -486,7 +508,7 @@ func (app *application) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resp struct {
-		Error bool `json:"error"`
+		Error   bool   `json:"error"`
 		Message string `json:"message"`
 	}
 	resp.Error = false
