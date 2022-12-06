@@ -402,6 +402,8 @@ func (app *application) ShowSale(w http.ResponseWriter, r *http.Request) {
 	stringMap := make(map[string]string)
 	stringMap["title"] = "Sale"
 	stringMap["cancel"] = "/admin/all-sales"
+	stringMap["refund-url"] = "/api/admin/refund"
+	stringMap["refund-btn"] = "Refund Order"
 	if err := app.renderTemplate(w, r, "sale", &templateData{}); err != nil {
 		app.errorLog.Println(err)
 	}
@@ -411,6 +413,8 @@ func (app *application) ShowSubscription(w http.ResponseWriter, r *http.Request)
 	stringMap := make(map[string]string)
 	stringMap["title"] = "Subscription"
 	stringMap["cancel"] = "/admin/all-subscriptions"
+	stringMap["refund-url"] = "/api/admin/cancel-subscription"
+	stringMap["refund-btn"] = "Cancel Subscription"
 	if err := app.renderTemplate(w, r, "sale", &templateData{}); err != nil {
 		app.errorLog.Println(err)
 	}
