@@ -52,7 +52,7 @@ function paginator(pages, curPage) {
     for (var j = 0; j < pageBtns.length; j++) {
         pageBtns[j].addEventListener("click", function(evt){
             let desiredPage = evt.target.getAttribute("data-page");
-            if((desiredPage > 0) && (desiredPage <= pages + 1)){
+            if ((desiredPage > 0) && (desiredPage <= pages + 1)) {
                 updateTable(pageSize, desiredPage);
             }
         })
@@ -62,6 +62,7 @@ function paginator(pages, curPage) {
 function updateTable(ps, cp) {
     let token = localStorage.getItem("token");
     let tbody = document.getElementById("sales-table").getElementsByTagName("tbody")[0];
+    tbody.innerHTML = "";
 
     let body = {
         page_size: parseInt(ps, 10),
