@@ -16,13 +16,14 @@ type WsPayload struct {
 	Message     string              `json:"message"`
 	UserName    string              `json:"username"`
 	MessageType string              `json:"message_type"`
+	UserID      int                 `json:"user_id"`
 	Conn        WebSocketConnection `json:"-"`
 }
 
 type WsJsonResponse struct {
-	Action string `json:"action"`
+	Action  string `json:"action"`
 	Message string `json:"message"`
-	UserID int `json:"user_id"`
+	UserID  int    `json:"user_id"`
 }
 
 var upgradeConnection = websocket.Upgrader{
@@ -59,7 +60,7 @@ func (app *application) WsEndPoint(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) ListenForWS(conn *WebSocketConnection) {
-	defer func ()  {
+	defer func() {
 		if r := recover(); r != nil {
 			app.errorLog.Println("ERORR: ", fmt.Sprintf("%v", r))
 		}
@@ -86,8 +87,9 @@ func (app *application) ListenToWsChannel() {
 		case "deleteUser":
 			response.Action = "logout"
 			response.Message = "Your account has been deleted"
+			response.UserID = e.UserID
 			app.broadcastToAll(response)
-		
+
 		default:
 		}
 	}
