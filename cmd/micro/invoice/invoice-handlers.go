@@ -23,7 +23,32 @@ type Order struct {
 func (app *application) CreateandSendInvoice(w http.ResponseWriter, r *http.Request) {
 	var order Order
 
-	err := app.readJSON(w, r, &order)
+	// err := app.readJSON(w, r, &order)
+	// if err != nil {
+	// 	app.badRequest(w, r, err)
+	// 	return
+	// }
+
+	order.ID = 100
+	order.Email = "me@here.com"
+	order.FirstName = "John"
+	order.LastName = "Smith"
+	order.Quantity = 1
+	order.Amount = 1000
+	order.Product = "Widget"
+	order.CreatedAt = time.Now()
+
+	err := app.createInvoicePDF(order)
+	if err != nil {
+		app.badRequest(w, r, err)
+		return
+	}
+
+	attachmets := []string {
+		fmt.Sprintf("./invoices/%d.pdf", order.ID),
+	}
+
+	err = app.SendMail("info@widgets.com", order.Email, "Your invoice", "invoice", attachmets, nil)
 	if err != nil {
 		app.badRequest(w, r, err)
 		return
@@ -67,7 +92,7 @@ func (app *application) createInvoicePDF(order Order) error {
 	pdf.CellFormat(20, 8, fmt.Sprintf("%d", order.Quantity), "", 0, "C", false, 0, "")
 
 	pdf.SetX(185)
-	pdf.CellFormat(20, 8, fmt.Sprintf("$%.2f", float32(order.Amount / 100.0)), "", 0, "R", false, 0, "")
+	pdf.CellFormat(20, 8, fmt.Sprintf("$%.2f", float32(order.Amount/100.0)), "", 0, "R", false, 0, "")
 
 	invoicePath := fmt.Sprintf("./invoices/%d.pdf", order.ID)
 	err := pdf.OutputFileAndClose(invoicePath)
