@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -116,6 +117,20 @@ func (app *application) GetWidgetByID(w http.ResponseWriter, r *http.Request) {
 	w.Write(out)
 }
 
+// Invoice describes the JSON payload sent to the microservice
+type Invoice struct {
+	ID        int       `json:"id"`
+	WidgetID  int       `json:"widget_id"`
+	Amount    int       `json:"amount"`
+	Product   string    `json:"product"`
+	Quantity  int       `json:"quantity"`
+	FirstName string    `json:"first_name"`
+	LastName  string    `json:"last_name"`
+	Email     string    `json:"email"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// CreateCustomerAndSubscribeToPlan is the handler for subscribing to the bronze plan
 func (app *application) CreateCustomerAndSubscribeToPlan(w http.ResponseWriter, r *http.Request) {
 	var data stripePayload
 	err := json.NewDecoder(r.Body).Decode(&data)
@@ -190,10 +205,26 @@ func (app *application) CreateCustomerAndSubscribeToPlan(w http.ResponseWriter, 
 			UpdatedAt:     time.Now(),
 		}
 
-		_, err = app.SaveOrder(order)
+		orderID, err := app.SaveOrder(order)
 		if err != nil {
 			app.errorLog.Println(err)
 			return
+		}
+
+		inv := Invoice{
+			ID:        orderID,
+			Amount:    2000,
+			Product:   "Bronze Plan monthly subscription",
+			Quantity:  order.Quantity,
+			FirstName: data.FirstName,
+			LastName:  data.LastName,
+			Email:     data.Email,
+			CreatedAt: time.Now(),
+		}
+
+		err = app.callInvoiceMicro(inv)
+		if err != nil {
+			app.errorLog.Println(err)
 		}
 	}
 
@@ -210,6 +241,30 @@ func (app *application) CreateCustomerAndSubscribeToPlan(w http.ResponseWriter, 
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(out)
+}
+
+// callInvoiceMicro calls the invoicing microservice
+func (app *application) callInvoiceMicro(inv Invoice) error {
+	url := "http://localhost:5000/invoice/create-and-send"
+	out, err := json.MarshalIndent(inv, "", "\t")
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(out))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	return nil
 }
 
 // SaveCustomer saves a customer and returns id
@@ -655,6 +710,7 @@ func (app *application) RefundCharge(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// CancelSubscription is the handler to cancel a subscription
 func (app *application) CancelSubscription(w http.ResponseWriter, r *http.Request) {
 	var subToCancel struct {
 		ID            int    `json:"id"`
@@ -697,6 +753,7 @@ func (app *application) CancelSubscription(w http.ResponseWriter, r *http.Reques
 	app.writeJSON(w, http.StatusOK, resp)
 }
 
+// AllUsers returns a JSON file listing all admin users
 func (app *application) AllUsers(w http.ResponseWriter, r *http.Request) {
 	allUsers, err := app.DB.GetAllUsers()
 	if err != nil {
@@ -707,6 +764,7 @@ func (app *application) AllUsers(w http.ResponseWriter, r *http.Request) {
 	app.writeJSON(w, http.StatusOK, allUsers)
 }
 
+// OneUser gets one user by id (from the url) and returns it as JSON
 func (app *application) OneUser(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	userID, _ := strconv.Atoi(id)
@@ -720,6 +778,7 @@ func (app *application) OneUser(w http.ResponseWriter, r *http.Request) {
 	app.writeJSON(w, http.StatusOK, user)
 }
 
+// EditUser is the handler for adding or editing an existing user
 func (app *application) EditUser(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	userID, _ := strconv.Atoi(id)
@@ -758,7 +817,6 @@ func (app *application) EditUser(w http.ResponseWriter, r *http.Request) {
 			app.badRequest(w, r, err)
 			return
 		}
-
 		err = app.DB.AddUser(user, string(newHash))
 		if err != nil {
 			app.badRequest(w, r, err)
@@ -775,6 +833,7 @@ func (app *application) EditUser(w http.ResponseWriter, r *http.Request) {
 	app.writeJSON(w, http.StatusOK, resp)
 }
 
+// DeleteUser deletes a user, and all associated tokens, from the database
 func (app *application) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	userID, _ := strconv.Atoi(id)
